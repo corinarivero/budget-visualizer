@@ -1,6 +1,26 @@
 // ---------- Storage ----------
 const STORAGE_KEY = "ledger-entries";
 
+function populateMonthFilter() {
+  const previousSelection = monthFilter.value;
+
+  const months = new Set(entries.map(e => e.date.slice(0, 7)));
+  const sortedMonths = [...months].sort().reverse();
+
+  monthFilter.innerHTML = '<option value="all">All time</option>';
+
+  sortedMonths.forEach(month => {
+    const option = document.createElement("option");
+    option.value = month;
+    option.textContent = month;
+    monthFilter.appendChild(option);
+  });
+
+  if (sortedMonths.includes(previousSelection) || previousSelection === "all") {
+    monthFilter.value = previousSelection;
+  }
+}
+
 function loadEntries() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -28,6 +48,7 @@ const CATEGORY_COLORS = {
 };
 
 // ---------- DOM refs ----------
+const monthFilter = document.getElementById("monthFilter");
 const form = document.getElementById("entryForm");
 const tape = document.getElementById("tape");
 const tapeEmpty = document.getElementById("tapeEmpty");
@@ -54,7 +75,7 @@ function renderTape() {
   }
   tapeEmpty.style.display = "none";
 
-  const sorted = [...entries].sort((a, b) => new Date(a.date) - new Date(b.date));
+  const sorted = [...getFilteredEntries()].sort((a, b) => new Date(a.date) - new Date(b.date));
 
   sorted.forEach(entry => {
     const el = document.createElement("div");
@@ -80,9 +101,7 @@ function escapeHtml(str) {
 }
 
 function renderTotal() {
-  const total = entries
-    .filter(e => isThisMonth(e.date))
-    .reduce((sum, e) => sum + e.amount, 0);
+  const total = getFilteredEntries().reduce((sum, e) => sum + e.amount, 0);
   monthTotalEl.textContent = formatMoney(total);
 }
 
@@ -91,7 +110,7 @@ let categoryChart, trendChart;
 
 function renderCategoryChart() {
   const totals = {};
-  entries.forEach(e => {
+  getFilteredEntries().forEach(e => {
     totals[e.category] = (totals[e.category] || 0) + e.amount;
   });
 
@@ -126,7 +145,7 @@ function renderCategoryChart() {
 
 function renderTrendChart() {
   const byDay = {};
-  entries.forEach(e => {
+  getFilteredEntries().forEach(e => {
     byDay[e.date] = (byDay[e.date] || 0) + e.amount;
   });
 
@@ -157,7 +176,15 @@ function renderTrendChart() {
   });
 }
 
+function getFilteredEntries() {
+  if (monthFilter.value === "all") {
+    return entries;
+  }
+  return entries.filter(entry => entry.date.slice(0, 7) === monthFilter.value);
+}
+
 function renderAll() {
+  populateMonthFilter();
   renderTape();
   renderTotal();
   renderCategoryChart();
@@ -198,6 +225,10 @@ tape.addEventListener("click", (e) => {
     saveEntries(entries);
     renderAll();
   }
+});
+
+monthFilter.addEventListener("change", () => {
+  renderAll();
 });
 
 // ---------- Init ----------
